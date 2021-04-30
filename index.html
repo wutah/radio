@@ -16,7 +16,7 @@ b{cursor:pointer;color:blue;text-decoration:underline;} b:hover{background-color
 
 #sts{background-color:yellow;}
 
-div{padding:8px;cursor:pointer;background-color:#CCF} div:hover{background-color:lightblue;}
+div{padding:8px;cursor:pointer;background-color:#AAF} div:hover{background-color:lightblue;}
 
 .del{display:inline;float:right;color:red;background-color:orange;}
 .hid,#player{display:none;}
@@ -127,7 +127,7 @@ document.title = '"'+key+'" is playing...';
 
 myAudio.setAttribute('src',url); myAudio.setAttribute('autoplay',''); myAudio.volume = 1;myAudio.play();
 
-function reconn(){myAudio.setAttribute('src',url+'?'+Math.random()); myAudio.play(); console.log('reconnecting...');}
+function reconn(){myAudio.setAttribute('src',url+'?'+Math.random()); myAudio.play(); console.log('reconnecting to '+url);}
 
 
 myAudio.addEventListener("error", reconn, false);
