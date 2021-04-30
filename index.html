@@ -125,13 +125,13 @@ var url=localStorage.getItem('|'+key);
 document.title = '"'+key+'" is playing...';
 
 
-myAudio.setAttribute('src',url); myAudio.setAttribute('autoplay',''); myAudio.volume = 1;
+myAudio.setAttribute('src',url); myAudio.setAttribute('autoplay',''); myAudio.volume = 1;myAudio.play();
 
-function reconn(){myAudio.setAttribute('src',url+'?'+Math.random()); console.log('reconnecting...');}
+function reconn(){myAudio.setAttribute('src',url+'?'+Math.random()); myAudio.play(); console.log('reconnecting...');}
 
 
 myAudio.addEventListener("error", reconn, false);
-myAudio.addEventListener("suspend", reconn, false);
+//myAudio.addEventListener("suspend", reconn, false);
 myAudio.addEventListener("ended", reconn, false);
 
 //myAudio.addEventListener("abort", reconn, false);
