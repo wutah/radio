@@ -82,15 +82,29 @@
                 height: 100%;
                 display: flex;
                 flex-direction: column-reverse;
+                z-index: 9998;
+            }
+
+            #status {
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                color: orange;
+                background-color: black;
+                width: 25%;
                 z-index: 9999;
             }
         </style>
-        <title>html5 radio player 0.0.1</title>
+        <title>html5 radio player 0.1.1</title>
     </head>
     <body>
+        <div id="status">NOT PLAYING...</div>
         <div id="logs"></div>
         <script>
-			window.onbeforeunload = function(){return "Don't unload!";};
+            window.onbeforeunload = function() {
+                return "Don't unload!";
+            }
+            ;
             oldkey = false;
             key = false;
 
@@ -113,7 +127,7 @@
                 for (var key in localStorage) {
                     if (key.substring(0, 1) == "|") {
                         key = key.substring(1);
-                        txt += '<span title="delete" class="del" onclick = "del(\'' + key + '\');">X</span> <div id="' + key + '" onclick = "play(\'' + key + '\');">' + key + '</div>';
+                        txt += '<span title="delete" class="del" onclick = "del(\'' + key + '\');">X</span> <div id="' + key + '" onclick = "play(\'' + key + '\');">' + atob(key) + '</div>';
                     }
                 }
                 document.getElementById("sts").innerHTML = txt;
@@ -123,7 +137,7 @@
                 var sn = prompt("Please enter your station's name:", "");
                 var su = prompt("Please enter your stream url:", "https://");
                 if (sn && su) {
-                    localStorage.setItem('|' + sn, su);
+                    localStorage.setItem('|' + btoa(sn), btoa(su));
                     render();
                     logs('Station "' + sn + '" added');
                 } else {
@@ -133,7 +147,7 @@
 
             function del(id) {
                 if (confirm("Delete " + id + "?")) {
-                    localStorage.removeItem("|" + id);
+                    localStorage.removeItem("|" + btoa(id));
                     render();
                     logs('Station "' + id + '" deleted');
                 } else {
@@ -147,7 +161,7 @@
                     for (var key in localStorage) {
                         if (key.substring(0, 1) == "|") {
                             key = key.substring(1);
-                            txt += '"' + key + '":"' + localStorage.getItem('|' + key) + '", ';
+                            txt += '"' + atob(key).replace(/[\W_]+/gi, " ") + '":"' + atob(localStorage.getItem('|' + key)).replace(/[\"\'\<\>]/gi, '') + '", ';
                         }
                     }
                     txt = txt.substring(0, (txt.length - 2));
@@ -167,7 +181,7 @@
                     if (confirm("YOUR STATIONS WILL BE REPLACED!")) {
                         localStorage.clear();
                         for (var k in m) {
-                            localStorage.setItem('|' + k, m[k]);
+                            localStorage.setItem('|' + btoa(k), btoa(m[k]));
                         }
                         render();
                         logs('Stations loaded from your json file');
@@ -177,7 +191,7 @@
                 }
             }
 
-            var timerId, url, watch1, watch2, op, logger = document.getElementById('logs');
+            var timerId, url, watch1, watch2, op, logger = document.getElementById('logs'), st2 = document.getElementById('status');
             function logs(m) {
                 logger.innerHTML += m + '<br><br>';
             }
@@ -187,18 +201,21 @@
             function play(key) {
                 if (oldkey != key) {
                     if (oldkey) {
-                        document.getElementById(oldkey).innerHTML = oldkey; document.getElementById(oldkey).style.background='';
+                        document.getElementById(oldkey).innerHTML = atob(oldkey);
+                        document.getElementById(oldkey).style.background = '';
                     }
                     op = false;
                     var keyid = document.getElementById(key);
                     function watchdog() {
                         if (watch1 == watch2) {
+                            st2.innerHTML = 'ERROR' + '<p>' + url;
                             if (op) {
-                                logs('"' + key + '" stopped unexpectedly. Trying to reopen the stream...');
-                                playnow(url + '?' + Math.random());
+                                logs('"' + atob(key) + '" stopped unexpectedly. Trying to reopen the stream...');
+                                playnow(url);
                             }
                         } else {
                             watch2 = watch1;
+                            st2.innerHTML = Math.floor(myAudio.currentTime) + '<p>' + url;
                         }
                     }
                     if (timerId) {
@@ -206,23 +223,25 @@
                     }
                     timerId = setInterval(watchdog, 1000);
                     function playnow(url) {
-                        keyid.innerHTML = key + ' ⌛ ';
-                        logs('"' + key + '" starts to play...');
+                        keyid.innerHTML = atob(key) + ' ⌛ ';
+                        logs('"' + atob(key) + '" starts to play...');
                         myAudio.setAttribute('preload', 'none');
                         myAudio.setAttribute('src', url);
                         myAudio.setAttribute('autoplay', '');
                         myAudio.volume = 1;
                         myAudio.oncanplay = function() {
                             myAudio.play();
-                            logs('"' + key + '" is playing now...');
-                            keyid.innerHTML = key + ' 🔊 '; keyid.style.background='lime';
+                            logs('"' + atob(key) + '" is playing now...');
+                            keyid.innerHTML = atob(key) + ' 🔊 ';
+                            keyid.style.background = 'lime';
                         }
                         myAudio.onerror = function() {
-                            logs('"' + key + '" - playback error!');
-                            keyid.innerHTML = key + ' ⛔ '; keyid.style.background='darkred';
+                            logs('"' + atob(key) + '" - playback error!');
+                            keyid.innerHTML = atob(key) + ' ⛔ ';
+                            keyid.style.background = 'darkred';
                         }
                     }
-                    url = localStorage.getItem('|' + key);
+                    url = atob(localStorage.getItem('|' + key));
                     playnow(url);
                     myAudio.ontimeupdate = function() {
                         watch1 = Math.random();
