@@ -95,7 +95,7 @@
                 z-index: 9999;
             }
         </style>
-        <title>html5 radio player 0.1.4</title>
+        <title>html5 radio player 0.1.5</title>
     </head>
     <body>
         <div id="status">NOT PLAYING...</div>
@@ -238,6 +238,7 @@
                             keyid.style.background = 'lime';
                         }
                         myAudio.onerror = function() {
+						    op = true;
                             logs('"' + atob(key) + '" - playback error!');
                             keyid.innerHTML = atob(key) + ' ⛔ ';
                             keyid.style.background = 'darkred';
