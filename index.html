@@ -95,7 +95,7 @@
                 z-index: 9999;
             }
         </style>
-        <title>html5 radio player 0.1.1</title>
+        <title>html5 radio player 0.1.2</title>
     </head>
     <body>
         <div id="status">NOT PLAYING...</div>
@@ -191,9 +191,10 @@
                 }
             }
 
-            var timerId, url, watch1, watch2, op, logger = document.getElementById('logs'), st2 = document.getElementById('status');
+            var timerId, url, watch1, watch2, op, logger = document.getElementById('logs'), clog = 0, st2 = document.getElementById('status');
             function logs(m) {
-                logger.innerHTML += m + '<br><br>';
+                clog++;
+                logger.innerHTML += clog + '. ' + m + '<br>';
             }
             window.onload = function() {
                 logs('Page is fully loaded');
@@ -208,8 +209,8 @@
                     var keyid = document.getElementById(key);
                     function watchdog() {
                         if (watch1 == watch2) {
-                            st2.innerHTML = 'ERROR' + '<p>' + url;
                             if (op) {
+                                st2.innerHTML = 'ERROR' + '<p>' + url;
                                 logs('"' + atob(key) + '" stopped unexpectedly. Trying to reopen the stream...');
                                 playnow(url);
                             }
@@ -226,6 +227,7 @@
                         keyid.innerHTML = atob(key) + ' ⌛ ';
                         logs('"' + atob(key) + '" starts to play...');
                         myAudio.setAttribute('preload', 'none');
+                        myAudio.setAttribute('src', "trash");
                         myAudio.setAttribute('src', url);
                         myAudio.setAttribute('autoplay', '');
                         myAudio.volume = 1;
