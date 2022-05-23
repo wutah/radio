@@ -95,7 +95,7 @@
                 z-index: 9999;
             }
         </style>
-        <title>html5 radio player 0.1.3</title>
+        <title>html5 radio player 0.1.4</title>
     </head>
     <body>
         <div id="status">NOT PLAYING...</div>
@@ -225,9 +225,9 @@
                     timerId = setInterval(watchdog, 1000);
                     function playnow(url) {
                         keyid.innerHTML = atob(key) + ' ⌛ ';
+                        op = false;
                         logs('"' + atob(key) + '" starts to play...');
                         myAudio.setAttribute('preload', 'none');
-                        myAudio.setAttribute('src', "trash");
                         myAudio.setAttribute('src', url);
                         myAudio.setAttribute('autoplay', '');
                         myAudio.volume = 1;
@@ -247,7 +247,7 @@
                     playnow(url);
                     myAudio.ontimeupdate = function() {
                         watch1 = Math.random();
-                        if (myAudio.currentTime > 15) {
+                        if (myAudio.currentTime > 5) {
                             op = true;
                         }
                     }
