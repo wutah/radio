@@ -95,10 +95,10 @@
                 z-index: 9999;
             }
         </style>
-        <title>html5 radio player 0.1.5</title>
+        <title>html5 radio player 0.1.6</title>
     </head>
     <body>
-        <div id="status">NOT PLAYING...</div>
+        <div id="status"></div>
         <div id="logs"></div>
         <script>
             window.onbeforeunload = function() {
@@ -146,6 +146,7 @@
             }
 
             function del(id) {
+                id = atob(id);
                 if (confirm("Delete " + id + "?")) {
                     localStorage.removeItem("|" + btoa(id));
                     render();
@@ -193,6 +194,10 @@
 
             var timerId, url, watch1, watch2, op, logger = document.getElementById('logs'), clog = 0, st2 = document.getElementById('status');
             function logs(m) {
+                if (clog > 16383) {
+                    clog = 0;
+                    logger.innerHTML = '';
+                }
                 clog++;
                 logger.innerHTML += clog + '. ' + m + '<br>';
             }
@@ -238,7 +243,7 @@
                             keyid.style.background = 'lime';
                         }
                         myAudio.onerror = function() {
-						    op = true;
+                            op = true;
                             logs('"' + atob(key) + '" - playback error!');
                             keyid.innerHTML = atob(key) + ' ⛔ ';
                             keyid.style.background = 'darkred';
