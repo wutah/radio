@@ -95,7 +95,7 @@
                 z-index: 9999;
             }
         </style>
-        <title>html5 radio player 0.1.6</title>
+        <title>html5 radio player 0.1.7</title>
     </head>
     <body>
         <div id="status"></div>
@@ -212,6 +212,7 @@
                     }
                     op = false;
                     var keyid = document.getElementById(key);
+					var ctmr = 0;
                     function watchdog() {
                         if (watch1 == watch2) {
                             if (op) {
@@ -221,13 +222,15 @@
                             }
                         } else {
                             watch2 = watch1;
-                            st2.innerHTML = Math.floor(myAudio.currentTime) + '<p>' + url;
+							ctmr = Math.floor(myAudio.currentTime);
+                            st2.innerHTML = ctmr + '<p>' + url;
+							document.title = ctmr +' '+ atob(key);
                         }
                     }
                     if (timerId) {
                         clearInterval(timerId);
                     }
-                    timerId = setInterval(watchdog, 1000);
+                    timerId = setInterval(watchdog, 2000);
                     function playnow(url) {
                         keyid.innerHTML = atob(key) + ' ⌛ ';
                         op = false;
