@@ -95,7 +95,7 @@
                 z-index: 9999;
             }
         </style>
-        <title>html5 radio player 0.1.7</title>
+        <title>html5 radio player 0.1.8</title>
     </head>
     <body>
         <div id="status"></div>
@@ -216,14 +216,12 @@
                     function watchdog() {
                         if (watch1 == watch2) {
                             if (op) {
-                                st2.innerHTML = 'ERROR' + '<p>' + url;
                                 logs('"' + atob(key) + '" stopped unexpectedly. Trying to reopen the stream...');
                                 playnow(url);
                             }
                         } else {
                             watch2 = watch1;
 							ctmr = Math.floor(myAudio.currentTime);
-                            st2.innerHTML = ctmr + '<p>' + url;
 							document.title = ctmr +' '+ atob(key);
                         }
                     }
@@ -260,7 +258,8 @@
                             op = true;
                         }
                     }
-                }
+                st2.innerHTML = '<p>NAME: '+ atob(key) +'<p>URL: ' + url;
+				}
                 oldkey = key;
             }
         </script>
