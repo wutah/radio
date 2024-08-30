@@ -230,7 +230,7 @@
                     if (timerId) {
                         clearInterval(timerId);
                     }
-                    timerId = setInterval(watchdog, 2000);
+                    timerId = setInterval(watchdog, 1000);
                     function playnow(url) {
                         keyid.innerHTML = atob(key) + ' ⌛ ';
                         op = false;
