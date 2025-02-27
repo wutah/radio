@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -95,7 +96,7 @@
                 z-index: 9999;
             }
         </style>
-        <title>html5 radio player 0.1.8</title>
+        <title>html5 radio player 0.1.9</title>
     </head>
     <body>
         <div id="status"></div>
@@ -127,7 +128,7 @@
                 for (var key in localStorage) {
                     if (key.substring(0, 1) == "|") {cnr++;
                         key = key.substring(1);
-                        txt += '<span title="delete" class="del" onclick = "del(\'' + key + '\');">X</span> <div id="' + key + '" onclick = "play(\'' + key + '\');">'+ cnr+ '. ' + atob(key) + '</div>';
+                        txt += '<span title="delete" class="del" onclick = "del(\'' + key + '\');">X</span> <div id="' + key + '" onclick = "play(\'' + key + '\',\'' + cnr + '\');">'+ cnr+ '. ' + atob(key) + '</div>';
                     }
                 }
                 document.getElementById("sts").innerHTML = txt;
@@ -204,10 +205,10 @@
             window.onload = function() {
                 logs('Page is fully loaded');
             }
-            function play(key) {
+            function play(key,num) {
                 if (oldkey != key) {
                     if (oldkey) {
-                        document.getElementById(oldkey).innerHTML = atob(oldkey);
+                        document.getElementById(oldkey).innerHTML=document.getElementById(oldkey).innerHTML.substring(0, document.getElementById(oldkey).innerHTML.length - 3);
                         document.getElementById(oldkey).style.background = '';
                     }
                     op = false;
@@ -230,7 +231,7 @@
                     }
                     timerId = setInterval(watchdog, 1000);
                     function playnow(url) {
-                        keyid.innerHTML = atob(key) + ' ⌛ ';
+                        keyid.innerHTML = num + '. ' +atob(key) + ' ⌛ ';
                         op = false;
                         logs('"' + atob(key) + '" starts to play...');
                         myAudio.setAttribute('preload', 'none');
@@ -240,13 +241,13 @@
                         myAudio.oncanplay = function() {
                             myAudio.play();
                             logs('"' + atob(key) + '" is playing now...');
-                            keyid.innerHTML = atob(key) + ' 🔊 ';
+                            keyid.innerHTML =num + '. ' + atob(key) + ' 🔊 ';
                             keyid.style.background = 'lime';
                         }
                         myAudio.onerror = function() {
                             op = true;
                             logs('"' + atob(key) + '" - playback error!');
-                            keyid.innerHTML = atob(key) + ' ⛔ ';
+                            keyid.innerHTML =num + '. ' + atob(key) + ' ⛔ ';
                             keyid.style.background = 'darkred';
                         }
                     }
