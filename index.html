@@ -122,12 +122,12 @@
             }
             ;
 
-            function render() {
+            function render() { var cnr=0;
                 var txt = '<br><br>';
                 for (var key in localStorage) {
-                    if (key.substring(0, 1) == "|") {
+                    if (key.substring(0, 1) == "|") {cnr++;
                         key = key.substring(1);
-                        txt += '<span title="delete" class="del" onclick = "del(\'' + key + '\');">X</span> <div id="' + key + '" onclick = "play(\'' + key + '\');">' + atob(key) + '</div>';
+                        txt += '<span title="delete" class="del" onclick = "del(\'' + key + '\');">X</span> <div id="' + key + '" onclick = "play(\'' + key + '\');">'+ cnr+ '. ' + atob(key) + '</div>';
                     }
                 }
                 document.getElementById("sts").innerHTML = txt;
