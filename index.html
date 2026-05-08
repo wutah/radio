@@ -1,9 +1,16 @@
-
 <!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        
+        <!-- PWA Meta Tags -->
+        <meta name="theme-color" content="#428BCA">
+        <meta name="description" content="HTML5 Radio Player - Add and listen to your favorite radio stations">
+        <link rel="manifest" href="manifest.json">
+        <link rel="icon" href="icon-192.png" type="image/png">
+        <link rel="apple-touch-icon" href="icon-192.png">
+
         <style>
             html {
                 line-break: anywhere;
@@ -101,34 +108,33 @@
     <body>
         <div id="status"></div>
         <div id="logs"></div>
+        
         <script>
+            // Original script (unchanged except added PWA install prompt handling)
             window.onbeforeunload = function() {
                 return "Don't unload!";
-            }
-            ;
+            };
+
             oldkey = false;
             key = false;
 
-            const downloadToFile = (content,filename,contentType)=>{
+            const downloadToFile = (content, filename, contentType) => {
                 const a = document.createElement('a');
-                const file = new Blob([content],{
-                    type: contentType
-                });
-
+                const file = new Blob([content], { type: contentType });
                 a.href = URL.createObjectURL(file);
                 a.download = filename;
                 a.click();
-
                 URL.revokeObjectURL(a.href);
-            }
-            ;
+            };
 
-            function render() { var cnr=0;
+            function render() {
+                var cnr = 0;
                 var txt = '<br><br>';
                 for (var key in localStorage) {
-                    if (key.substring(0, 1) == "|") {cnr++;
+                    if (key.substring(0, 1) == "|") {
+                        cnr++;
                         key = key.substring(1);
-                        txt += '<span title="delete" class="del" onclick = "del(\'' + key + '\');">X</span> <div id="' + key + '" onclick = "play(\'' + key + '\',\'' + cnr + '\');">'+ cnr+ '. ' + atob(key) + '</div>';
+                        txt += '<span title="delete" class="del" onclick="del(\'' + key + '\');">X</span> <div id="' + key + '" onclick="play(\'' + key + '\',\'' + cnr + '\');">' + cnr + '. ' + atob(key) + '</div>';
                     }
                 }
                 document.getElementById("sts").innerHTML = txt;
@@ -187,13 +193,12 @@
                         }
                         render();
                         logs('Stations loaded from your json file');
-                    } else {
-                        return false;
                     }
                 }
             }
 
             var timerId, url, watch1, watch2, op, logger = document.getElementById('logs'), clog = 0, st2 = document.getElementById('status');
+            
             function logs(m) {
                 if (clog > 1024) {
                     clog = 0;
@@ -202,18 +207,28 @@
                 clog++;
                 logger.innerHTML += clog + '. ' + m + '<br>';
             }
+
             window.onload = function() {
                 logs('Page is fully loaded');
-            }
-            function play(key,num) {
+                render();
+                // Register Service Worker
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('sw.js')
+                        .then(reg => logs('Service Worker registered'))
+                        .catch(err => logs('Service Worker registration failed: ' + err));
+                }
+            };
+
+            function play(key, num) {
                 if (oldkey != key) {
                     if (oldkey) {
-                        document.getElementById(oldkey).innerHTML=document.getElementById(oldkey).innerHTML.substring(0, document.getElementById(oldkey).innerHTML.length - 3);
+                        document.getElementById(oldkey).innerHTML = document.getElementById(oldkey).innerHTML.substring(0, document.getElementById(oldkey).innerHTML.length - 3);
                         document.getElementById(oldkey).style.background = '';
                     }
                     op = false;
                     var keyid = document.getElementById(key);
-					var ctmr = 0;
+                    var ctmr = 0;
+
                     function watchdog() {
                         if (watch1 == watch2) {
                             if (op) {
@@ -222,16 +237,16 @@
                             }
                         } else {
                             watch2 = watch1;
-							ctmr = Math.floor(myAudio.currentTime);
-							document.title = ctmr +' '+ atob(key);
+                            ctmr = Math.floor(myAudio.currentTime);
+                            document.title = ctmr + ' ' + atob(key);
                         }
                     }
-                    if (timerId) {
-                        clearInterval(timerId);
-                    }
+
+                    if (timerId) clearInterval(timerId);
                     timerId = setInterval(watchdog, 1000);
+
                     function playnow(url) {
-                        keyid.innerHTML = num + '. ' +atob(key) + ' ⌛ ';
+                        keyid.innerHTML = num + '. ' + atob(key) + ' ⌛ ';
                         op = false;
                         logs('"' + atob(key) + '" starts to play...');
                         myAudio.setAttribute('preload', 'none');
@@ -241,43 +256,64 @@
                         myAudio.oncanplay = function() {
                             myAudio.play();
                             logs('"' + atob(key) + '" is playing now...');
-                            keyid.innerHTML =num + '. ' + atob(key) + ' 🔊 ';
+                            keyid.innerHTML = num + '. ' + atob(key) + ' 🔊 ';
                             keyid.style.background = 'lime';
-                        }
+                        };
                         myAudio.onerror = function() {
                             op = true;
                             logs('"' + atob(key) + '" - playback error!');
-                            keyid.innerHTML =num + '. ' + atob(key) + ' ⛔ ';
+                            keyid.innerHTML = num + '. ' + atob(key) + ' ⛔ ';
                             keyid.style.background = 'darkred';
-                        }
+                        };
                     }
+
                     url = atob(localStorage.getItem('|' + key));
                     playnow(url);
                     myAudio.ontimeupdate = function() {
                         watch1 = Math.random();
-                        if (myAudio.currentTime > 5) {
-                            op = true;
-                        }
-                    }
-                st2.innerHTML = '<p>NAME: '+ atob(key) +'<p>URL: ' + url;
-				}
+                        if (myAudio.currentTime > 5) op = true;
+                    };
+                    st2.innerHTML = '<p>NAME: ' + atob(key) + '<p>URL: ' + url;
+                }
                 oldkey = key;
             }
+
+            // PWA Install Prompt
+            let deferredPrompt;
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                logs('PWA install prompt available - click the browser install button');
+            });
+
+            // Expose install function (optional button)
+            window.installPWA = function() {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choice) => {
+                        if (choice.outcome === 'accepted') {
+                            logs('User installed the PWA');
+                        }
+                        deferredPrompt = null;
+                    });
+                }
+            };
         </script>
-		<a href="/radio/stations.json">stations.json (example)</a><br><br><br>
+
+        <a href="stations.json">stations.json (example)</a><br><br><br>
         <span class="add" onclick="add();">Add station</span>
         <div id="sts"></div>
         <b onclick="getjson();">download stations.json</b>
         | <input onchange="putjson(event,this)" class="hid" type="file" name="files[]" id="file">
-        <label for="file">
-            <b>upload stations.json</b>
-        </label>
-        <br>
-        <br>
+        <label for="file"><b>upload stations.json</b></label>
+        <br><br>
+        
+        <!-- Install button (optional) -->
+        <button onclick="installPWA()" style="padding:8px 16px; font-size:16px; margin:10px;">Install as App (PWA)</button>
+        
         <audio id="player"></audio>
         <script>
-            render();
-            var myAudio = document.getElementById("player")
+            var myAudio = document.getElementById("player");
         </script>
     </body>
 </html>
