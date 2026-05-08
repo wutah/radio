@@ -103,7 +103,7 @@
             z-index: 9999;
         }
 
-        /* Hide install button when installed as PWA */
+        /* CSS fallback */
         @media all and (display-mode: standalone) {
             #installButton {
                 display: none !important;
@@ -203,16 +203,26 @@
             }
         }
 
-        var timerId, url, watch1, watch2, op, logger = document.getElementById('logs'), clog = 0, st2 = document.getElementById('status');
-        var myAudio;
+        var timerId, url, watch1, watch2, op, logger, clog = 0, st2, myAudio;
 
         function logs(m) {
+            if (!logger) return;
             if (clog > 1024) {
                 clog = 0;
                 logger.innerHTML = '';
             }
             clog++;
             logger.innerHTML += clog + '. ' + m + '<br>';
+        }
+
+        function hideInstallButton() {
+            const btn = document.getElementById('installButton');
+            if (!btn) return;
+            
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                                window.navigator.standalone === true;
+            
+            btn.style.display = isStandalone ? 'none' : 'inline-block';
         }
 
         window.onload = function() {
@@ -229,7 +239,10 @@
                     .catch(err => logs('Service Worker failed'));
             }
 
-            hideInstallButtonIfStandalone();
+            // Stronger hiding logic
+            hideInstallButton();
+            setTimeout(hideInstallButton, 500);
+            setTimeout(hideInstallButton, 1500);
         };
 
         function play(key, num) {
@@ -308,14 +321,9 @@
             }
         };
 
-        function hideInstallButtonIfStandalone() {
-            if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-                const btn = document.getElementById('installButton');
-                if (btn) btn.style.display = 'none';
-            }
-        }
-
-        window.addEventListener('load', hideInstallButtonIfStandalone);
+        // Extra safety
+        window.addEventListener('load', hideInstallButton);
+        window.matchMedia('(display-mode: standalone)').addEventListener('change', hideInstallButton);
     </script>
 
     <a href="stations.json">stations.json (example)</a><br><br><br>
