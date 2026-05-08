@@ -195,7 +195,7 @@
 
             var timerId, url, watch1, watch2, op, logger = document.getElementById('logs'), clog = 0, st2 = document.getElementById('status');
             function logs(m) {
-                if (clog > 16383) {
+                if (clog > 1024) {
                     clog = 0;
                     logger.innerHTML = '';
                 }
