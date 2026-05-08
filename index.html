@@ -103,7 +103,7 @@
             z-index: 9999;
         }
 
-        /* Hide install button when app is installed */
+        /* Hide install button when installed as PWA */
         @media all and (display-mode: standalone) {
             #installButton {
                 display: none !important;
@@ -139,10 +139,8 @@
             for (var key in localStorage) {
                 if (key.substring(0, 1) == "|") {
                     cnr++;
-                    var stationKey = key.substring(1);
-                    txt += '<span title="delete" class="del" onclick="del(\'' + stationKey + '\');">X</span> ' +
-                           '<div id="' + stationKey + '" onclick="play(\'' + stationKey + '\',\'' + cnr + '\');">' + 
-                           cnr + '. ' + atob(stationKey) + '</div>';
+                    key = key.substring(1);
+                    txt += '<span title="delete" class="del" onclick="del(\'' + key + '\');">X</span> <div id="' + key + '" onclick="play(\'' + key + '\',\'' + cnr + '\');">' + cnr + '. ' + atob(key) + '</div>';
                 }
             }
             document.getElementById("sts").innerHTML = txt;
@@ -161,11 +159,13 @@
         }
 
         function del(id) {
-            var name = atob(id);
-            if (confirm("Delete " + name + "?")) {
-                localStorage.removeItem("|" + id);
+            id = atob(id);
+            if (confirm("Delete " + id + "?")) {
+                localStorage.removeItem("|" + btoa(id));
                 render();
-                logs('Station "' + name + '" deleted');
+                logs('Station "' + id + '" deleted');
+            } else {
+                logs('Deletion canceled');
             }
         }
 
@@ -174,42 +174,39 @@
                 var txt = '{ ';
                 for (var key in localStorage) {
                     if (key.substring(0, 1) == "|") {
-                        var k = key.substring(1);
-                        txt += '"' + atob(k).replace(/"/g, '\\"') + '":"' + atob(localStorage.getItem(key)).replace(/"/g, '\\"') + '", ';
+                        key = key.substring(1);
+                        txt += '"' + atob(key).replace(/[\W_]+/gi, " ") + '":"' + atob(localStorage.getItem('|' + key)).replace(/[\"\'\<\>]/gi, '') + '", ';
                     }
                 }
-                txt = txt.substring(0, txt.length - 2) + ' }';
+                txt = txt.substring(0, (txt.length - 2));
+                txt += ' }';
                 downloadToFile(txt, 'stations.json', 'application/json');
-                logs('stations.json downloaded');
+                logs('Json file created');
             } else {
-                logs('No stations to export');
+                logs('No stations to create json file. Add some stations first');
             }
         }
 
         function putjson(e, o) {
-            var fr = new FileReader();
+            fr = new FileReader();
             fr.readAsText(o.files[0]);
-            fr.onload = function(ev) {
-                try {
-                    var m = JSON.parse(ev.target.result);
-                    if (confirm("YOUR STATIONS WILL BE REPLACED! Continue?")) {
-                        localStorage.clear();
-                        for (var k in m) {
-                            localStorage.setItem('|' + btoa(k), btoa(m[k]));
-                        }
-                        render();
-                        logs('Stations imported from JSON');
+            fr.onload = function(e) {
+                var m = JSON.parse(e.target.result);
+                if (confirm("YOUR STATIONS WILL BE REPLACED!")) {
+                    localStorage.clear();
+                    for (var k in m) {
+                        localStorage.setItem('|' + btoa(k), btoa(m[k]));
                     }
-                } catch(err) {
-                    logs('Invalid JSON file');
+                    render();
+                    logs('Stations loaded from your json file');
                 }
-            };
+            }
         }
 
-        var timerId, url, watch1, watch2, op = false, logger, clog = 0, st2, myAudio;
+        var timerId, url, watch1, watch2, op, logger = document.getElementById('logs'), clog = 0, st2 = document.getElementById('status');
+        var myAudio;
 
         function logs(m) {
-            if (!logger) return;
             if (clog > 1024) {
                 clog = 0;
                 logger.innerHTML = '';
@@ -223,72 +220,97 @@
             st2 = document.getElementById('status');
             myAudio = document.getElementById("player");
 
-            logs('Page loaded');
+            logs('Page is fully loaded');
             render();
 
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js')
-                    .then(reg => logs('Service Worker registered'))
-                    .catch(err => logs('Service Worker error: ' + err));
+                    .then(() => logs('Service Worker registered'))
+                    .catch(err => logs('Service Worker failed'));
             }
 
             hideInstallButtonIfStandalone();
         };
 
         function play(key, num) {
-            if (oldkey == key) return;
-
-            if (oldkey) {
-                var oldEl = document.getElementById(oldkey);
-                if (oldEl) {
-                    oldEl.style.background = '';
-                    oldEl.innerHTML = oldEl.innerHTML.replace(/ [🔊⌛⛔]/, '');
+            if (oldkey != key) {
+                if (oldkey) {
+                    document.getElementById(oldkey).innerHTML = document.getElementById(oldkey).innerHTML.substring(0, document.getElementById(oldkey).innerHTML.length - 3);
+                    document.getElementById(oldkey).style.background = '';
                 }
+                op = false;
+                var keyid = document.getElementById(key);
+                var ctmr = 0;
+
+                function watchdog() {
+                    if (watch1 == watch2) {
+                        if (op) {
+                            logs('"' + atob(key) + '" stopped unexpectedly. Reconnecting...');
+                            playnow(url);
+                        }
+                    } else {
+                        watch2 = watch1;
+                        ctmr = Math.floor(myAudio.currentTime);
+                        document.title = ctmr + ' ' + atob(key);
+                    }
+                }
+
+                if (timerId) clearInterval(timerId);
+                timerId = setInterval(watchdog, 1000);
+
+                function playnow(url) {
+                    keyid.innerHTML = num + '. ' + atob(key) + ' ⌛ ';
+                    op = false;
+                    logs('"' + atob(key) + '" starts to play...');
+                    myAudio.setAttribute('preload', 'none');
+                    myAudio.setAttribute('src', url);
+                    myAudio.setAttribute('autoplay', '');
+                    myAudio.volume = 1;
+                    myAudio.oncanplay = function() {
+                        myAudio.play();
+                        logs('"' + atob(key) + '" is playing now...');
+                        keyid.innerHTML = num + '. ' + atob(key) + ' 🔊 ';
+                        keyid.style.background = 'lime';
+                    };
+                    myAudio.onerror = function() {
+                        op = true;
+                        logs('"' + atob(key) + '" - playback error!');
+                        keyid.innerHTML = num + '. ' + atob(key) + ' ⛔ ';
+                        keyid.style.background = 'darkred';
+                    };
+                }
+
+                url = atob(localStorage.getItem('|' + key));
+                playnow(url);
+                myAudio.ontimeupdate = function() {
+                    watch1 = Math.random();
+                    if (myAudio.currentTime > 5) op = true;
+                };
+                st2.innerHTML = '<p>NAME: ' + atob(key) + '<p>URL: ' + url;
             }
-
-            var keyid = document.getElementById(key);
-            url = atob(localStorage.getItem('|' + key));
-
-            keyid.innerHTML = num + '. ' + atob(key) + ' ⌛ ';
-            logs('Loading: ' + atob(key));
-
-            myAudio.src = url;
-            myAudio.play().catch(e => logs('Play error'));
-
-            myAudio.oncanplay = function() {
-                keyid.innerHTML = num + '. ' + atob(key) + ' 🔊 ';
-                keyid.style.background = 'lime';
-            };
-
-            myAudio.onerror = function() {
-                keyid.innerHTML = num + '. ' + atob(key) + ' ⛔ ';
-                keyid.style.background = 'darkred';
-                logs('Stream error');
-            };
-
             oldkey = key;
-            st2.innerHTML = '<p>NAME: ' + atob(key) + '<p>URL: ' + url;
         }
 
-        // PWA Install
+        // PWA Install Prompt
         window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
             deferredPrompt = e;
-            logs('PWA install prompt ready');
+            logs('PWA install prompt available');
         });
 
         window.installPWA = function() {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((choice) => {
-                    logs(choice.outcome === 'accepted' ? 'App installed!' : 'Install canceled');
+                    logs(choice.outcome === 'accepted' ? 'App installed successfully' : 'Install canceled');
                     deferredPrompt = null;
                 });
             }
         };
 
         function hideInstallButtonIfStandalone() {
-            if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
-                var btn = document.getElementById('installButton');
+            if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+                const btn = document.getElementById('installButton');
                 if (btn) btn.style.display = 'none';
             }
         }
@@ -299,14 +321,13 @@
     <a href="stations.json">stations.json (example)</a><br><br><br>
     <span class="add" onclick="add();">Add station</span>
     <div id="sts"></div>
-    
     <b onclick="getjson();">download stations.json</b>
-    | <input onchange="putjson(event,this)" class="hid" type="file" id="file">
+    | <input onchange="putjson(event,this)" class="hid" type="file" name="files[]" id="file">
     <label for="file"><b>upload stations.json</b></label>
     <br><br>
 
     <button id="installButton" onclick="installPWA()" 
-            style="padding:10px 20px; font-size:16px; margin:15px; cursor:pointer;">
+            style="padding:10px 20px; font-size:16px; margin:10px; cursor:pointer;">
         Install as App (PWA)
     </button>
 
