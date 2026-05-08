@@ -1,0 +1,283 @@
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            html {
+                line-break: anywhere;
+                word-wrap: break-word;
+                height: 100%;
+                padding: 0;
+                margin: 0;
+            }
+
+            .add {
+                padding: 8px;
+                background-color: #AAF;
+                color: #000;
+                font-size: 19pt;
+            }
+
+            .add:hover {
+                background-color: #FAA;
+                cursor: pointer;
+            }
+
+            body {
+                text-align: center;
+                max-width: 920px;
+                margin: auto;
+                border-color: #428BCA;
+                border-style: solid;
+            }
+
+            b {
+                cursor: pointer;
+                color: blue;
+                text-decoration: underline;
+            }
+
+            b:hover {
+                background-color: lightblue;
+            }
+
+            #sts {
+                background-color: yellow;
+            }
+
+            div {
+                padding: 8px;
+                cursor: pointer;
+                background-color: #AAF;
+                margin-bottom: 2px;
+            }
+
+            div:hover {
+                background-color: white;
+            }
+
+            .del {
+                display: inline;
+                float: right;
+                color: red;
+                background-color: orange;
+            }
+
+            .hid,#player {
+                display: none;
+            }
+
+            #logs {
+                cursor: default;
+                text-align: left;
+                opacity: 0.7;
+                position: fixed;
+                bottom: 0px;
+                left: 0px;
+                background-color: black;
+                color: white;
+                width: 15%;
+                overflow-y: scroll;
+                height: 100%;
+                display: flex;
+                flex-direction: column-reverse;
+                z-index: 9998;
+            }
+
+            #status {
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                color: orange;
+                background-color: black;
+                width: 25%;
+                z-index: 9999;
+            }
+        </style>
+        <title>html5 radio player 0.1.10</title>
+    </head>
+    <body>
+        <div id="status"></div>
+        <div id="logs"></div>
+        <script>
+            window.onbeforeunload = function() {
+                return "Don't unload!";
+            }
+            ;
+            oldkey = false;
+            key = false;
+
+            const downloadToFile = (content,filename,contentType)=>{
+                const a = document.createElement('a');
+                const file = new Blob([content],{
+                    type: contentType
+                });
+
+                a.href = URL.createObjectURL(file);
+                a.download = filename;
+                a.click();
+
+                URL.revokeObjectURL(a.href);
+            }
+            ;
+
+            function render() { var cnr=0;
+                var txt = '<br><br>';
+                for (var key in localStorage) {
+                    if (key.substring(0, 1) == "|") {cnr++;
+                        key = key.substring(1);
+                        txt += '<span title="delete" class="del" onclick = "del(\'' + key + '\');">X</span> <div id="' + key + '" onclick = "play(\'' + key + '\',\'' + cnr + '\');">'+ cnr+ '. ' + atob(key) + '</div>';
+                    }
+                }
+                document.getElementById("sts").innerHTML = txt;
+            }
+
+            function add() {
+                var sn = prompt("Please enter your station's name:", "");
+                var su = prompt("Please enter your stream url:", "https://");
+                if (sn && su) {
+                    localStorage.setItem('|' + btoa(sn), btoa(su));
+                    render();
+                    logs('Station "' + sn + '" added');
+                } else {
+                    logs('Station addition canceled');
+                }
+            }
+
+            function del(id) {
+                id = atob(id);
+                if (confirm("Delete " + id + "?")) {
+                    localStorage.removeItem("|" + btoa(id));
+                    render();
+                    logs('Station "' + id + '" deleted');
+                } else {
+                    logs('Deletion "' + id + '" canceled');
+                }
+            }
+
+            function getjson() {
+                if (localStorage.length > 0) {
+                    var txt = '{ ';
+                    for (var key in localStorage) {
+                        if (key.substring(0, 1) == "|") {
+                            key = key.substring(1);
+                            txt += '"' + atob(key).replace(/[\W_]+/gi, " ") + '":"' + atob(localStorage.getItem('|' + key)).replace(/[\"\'\<\>]/gi, '') + '", ';
+                        }
+                    }
+                    txt = txt.substring(0, (txt.length - 2));
+                    txt += ' }';
+                    downloadToFile(txt, 'stations.json', 'application/json');
+                    logs('Json file created');
+                } else {
+                    logs('No stations to create json file. Add some stations first');
+                }
+            }
+
+            function putjson(e, o) {
+                fr = new FileReader();
+                fr.readAsText(o.files[0]);
+                fr.onload = function(e) {
+                    var m = JSON.parse(e.target.result);
+                    if (confirm("YOUR STATIONS WILL BE REPLACED!")) {
+                        localStorage.clear();
+                        for (var k in m) {
+                            localStorage.setItem('|' + btoa(k), btoa(m[k]));
+                        }
+                        render();
+                        logs('Stations loaded from your json file');
+                    } else {
+                        return false;
+                    }
+                }
+            }
+
+            var timerId, url, watch1, watch2, op, logger = document.getElementById('logs'), clog = 0, st2 = document.getElementById('status');
+            function logs(m) {
+                if (clog > 1024) {
+                    clog = 0;
+                    logger.innerHTML = '';
+                }
+                clog++;
+                logger.innerHTML += clog + '. ' + m + '<br>';
+            }
+            window.onload = function() {
+                logs('Page is fully loaded');
+            }
+            function play(key,num) {
+                if (oldkey != key) {
+                    if (oldkey) {
+                        document.getElementById(oldkey).innerHTML=document.getElementById(oldkey).innerHTML.substring(0, document.getElementById(oldkey).innerHTML.length - 3);
+                        document.getElementById(oldkey).style.background = '';
+                    }
+                    op = false;
+                    var keyid = document.getElementById(key);
+					var ctmr = 0;
+                    function watchdog() {
+                        if (watch1 == watch2) {
+                            if (op) {
+                                logs('"' + atob(key) + '" stopped unexpectedly. Trying to reopen the stream...');
+                                playnow(url);
+                            }
+                        } else {
+                            watch2 = watch1;
+							ctmr = Math.floor(myAudio.currentTime);
+							document.title = ctmr +' '+ atob(key);
+                        }
+                    }
+                    if (timerId) {
+                        clearInterval(timerId);
+                    }
+                    timerId = setInterval(watchdog, 1000);
+                    function playnow(url) {
+                        keyid.innerHTML = num + '. ' +atob(key) + ' ⌛ ';
+                        op = false;
+                        logs('"' + atob(key) + '" starts to play...');
+                        myAudio.setAttribute('preload', 'none');
+                        myAudio.setAttribute('src', url);
+                        myAudio.setAttribute('autoplay', '');
+                        myAudio.volume = 1;
+                        myAudio.oncanplay = function() {
+                            myAudio.play();
+                            logs('"' + atob(key) + '" is playing now...');
+                            keyid.innerHTML =num + '. ' + atob(key) + ' 🔊 ';
+                            keyid.style.background = 'lime';
+                        }
+                        myAudio.onerror = function() {
+                            op = true;
+                            logs('"' + atob(key) + '" - playback error!');
+                            keyid.innerHTML =num + '. ' + atob(key) + ' ⛔ ';
+                            keyid.style.background = 'darkred';
+                        }
+                    }
+                    url = atob(localStorage.getItem('|' + key));
+                    playnow(url);
+                    myAudio.ontimeupdate = function() {
+                        watch1 = Math.random();
+                        if (myAudio.currentTime > 5) {
+                            op = true;
+                        }
+                    }
+                st2.innerHTML = '<p>NAME: '+ atob(key) +'<p>URL: ' + url;
+				}
+                oldkey = key;
+            }
+        </script>
+		<a href="/radio/stations.json">stations.json (example)</a><br><br><br>
+        <span class="add" onclick="add();">Add station</span>
+        <div id="sts"></div>
+        <b onclick="getjson();">download stations.json</b>
+        | <input onchange="putjson(event,this)" class="hid" type="file" name="files[]" id="file">
+        <label for="file">
+            <b>upload stations.json</b>
+        </label>
+        <br>
+        <br>
+        <audio id="player"></audio>
+        <script>
+            render();
+            var myAudio = document.getElementById("player")
+        </script>
+    </body>
+</html>
