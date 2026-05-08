@@ -103,11 +103,9 @@
             z-index: 9999;
         }
 
-        /* CSS fallback */
-        @media all and (display-mode: standalone) {
-            #installButton {
-                display: none !important;
-            }
+        /* Hide button by default - stronger rule */
+        #installButton {
+            display: none;
         }
     </style>
     <title>html5 radio player 0.1.10</title>
@@ -215,13 +213,13 @@
             logger.innerHTML += clog + '. ' + m + '<br>';
         }
 
-        function hideInstallButton() {
+        function updateInstallButton() {
             const btn = document.getElementById('installButton');
             if (!btn) return;
-            
+
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                                window.navigator.standalone === true;
-            
+                               window.navigator.standalone === true;
+
             btn.style.display = isStandalone ? 'none' : 'inline-block';
         }
 
@@ -239,10 +237,11 @@
                     .catch(err => logs('Service Worker failed'));
             }
 
-            // Stronger hiding logic
-            hideInstallButton();
-            setTimeout(hideInstallButton, 500);
-            setTimeout(hideInstallButton, 1500);
+            // Aggressive hiding for Windows Chrome
+            updateInstallButton();
+            setTimeout(updateInstallButton, 300);
+            setTimeout(updateInstallButton, 800);
+            setTimeout(updateInstallButton, 1500);
         };
 
         function play(key, num) {
@@ -309,6 +308,8 @@
             e.preventDefault();
             deferredPrompt = e;
             logs('PWA install prompt available');
+            // Only show button if not in standalone mode
+            updateInstallButton();
         });
 
         window.installPWA = function() {
@@ -321,9 +322,9 @@
             }
         };
 
-        // Extra safety
-        window.addEventListener('load', hideInstallButton);
-        window.matchMedia('(display-mode: standalone)').addEventListener('change', hideInstallButton);
+        // Extra safety listeners
+        window.addEventListener('load', updateInstallButton);
+        window.matchMedia('(display-mode: standalone)').addEventListener('change', updateInstallButton);
     </script>
 
     <a href="stations.json">stations.json (example)</a><br><br><br>
