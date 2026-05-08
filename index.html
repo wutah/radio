@@ -6,126 +6,90 @@
     
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#428BCA">
-    <meta name="description" content="HTML5 Radio Player - Add and listen to your favorite radio stations">
+    <meta name="description" content="HTML5 Radio Player">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="icon-192.png">
 
     <style>
-        html {
-            line-break: anywhere;
-            word-wrap: break-word;
-            height: 100%;
-            padding: 0;
+        html, body {
             margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
         }
-
-        .add {
-            padding: 8px;
-            background-color: #AAF;
-            color: #000;
-            font-size: 19pt;
-        }
-
-        .add:hover {
-            background-color: #FAA;
-            cursor: pointer;
-        }
-
         body {
             text-align: center;
             max-width: 920px;
             margin: auto;
-            border-color: #428BCA;
-            border-style: solid;
+            border: 4px solid #428BCA;
         }
-
-        b {
-            cursor: pointer;
-            color: blue;
-            text-decoration: underline;
-        }
-
-        b:hover {
-            background-color: lightblue;
-        }
-
-        #sts {
-            background-color: yellow;
-        }
-
-        div {
-            padding: 8px;
-            cursor: pointer;
+        .add {
+            padding: 12px;
             background-color: #AAF;
-            margin-bottom: 2px;
+            font-size: 20px;
+            cursor: pointer;
         }
-
-        div:hover {
-            background-color: white;
+        .add:hover { background-color: #FAA; }
+        div {
+            padding: 10px;
+            margin: 4px;
+            background-color: #AAF;
+            cursor: pointer;
         }
-
+        div:hover { background-color: white; }
         .del {
-            display: inline;
             float: right;
             color: red;
-            background-color: orange;
+            background: orange;
+            padding: 0 8px;
         }
-
-        .hid, #player {
-            display: none;
-        }
-
         #logs {
-            cursor: default;
-            text-align: left;
-            opacity: 0.7;
             position: fixed;
-            bottom: 0px;
-            left: 0px;
-            background-color: black;
-            color: white;
-            width: 15%;
-            overflow-y: scroll;
+            bottom: 0;
+            left: 0;
+            width: 18%;
             height: 100%;
-            display: flex;
-            flex-direction: column-reverse;
+            background: black;
+            color: white;
+            overflow-y: auto;
+            text-align: left;
+            padding: 5px;
+            opacity: 0.85;
             z-index: 9998;
         }
-
         #status {
             position: fixed;
             top: 10px;
             right: 10px;
+            background: black;
             color: orange;
-            background-color: black;
-            width: 25%;
+            padding: 10px;
             z-index: 9999;
         }
-
         #installButton {
-            display: inline-block;
+            padding: 12px 24px;
+            font-size: 16px;
+            margin: 15px;
+            cursor: pointer;
         }
-
         @media all and (display-mode: standalone) {
-            #installButton {
-                display: none !important;
-            }
+            #installButton { display: none !important; }
         }
     </style>
-    <title>html5 radio player 0.1.14</title>
+    <title>html5 radio player</title>
 </head>
 <body>
     <div id="status"></div>
     <div id="logs"></div>
 
     <script>
-        window.onbeforeunload = function() {
-            return "Don't unload!";
-        };
+        // Safe variables
+        let oldkey = false;
+        let deferredPrompt = null;
+        let myAudio, logger, st2;
 
-        var oldkey = false;
-        var deferredPrompt;
+        window.onbeforeunload = () => "Don't unload!";
 
         const downloadToFile = (content, filename, contentType) => {
             const a = document.createElement('a');
@@ -136,180 +100,101 @@
             URL.revokeObjectURL(a.href);
         };
 
+        function logs(m) {
+            if (!logger) return;
+            logger.innerHTML += '<br>' + m;
+            logger.scrollTop = logger.scrollHeight;
+        }
+
         function render() {
-            var cnr = 0;
-            var txt = '<br><br>';
-            for (var key in localStorage) {
-                if (key.substring(0, 1) == "|") {
+            let cnr = 0;
+            let txt = '<br><br>';
+            for (let key in localStorage) {
+                if (key[0] === "|") {
                     cnr++;
-                    key = key.substring(1);
-                    txt += '<span title="delete" class="del" onclick="del(\'' + key + '\');">X</span> <div id="' + key + '" onclick="play(\'' + key + '\',\'' + cnr + '\');">' + cnr + '. ' + atob(key) + '</div>';
+                    let stationKey = key.substring(1);
+                    txt += `<span class="del" onclick="del('${stationKey}')">X</span> 
+                            <div id="${stationKey}" onclick="play('${stationKey}', ${cnr})">${cnr}. ${atob(stationKey)}</div>`;
                 }
             }
             document.getElementById("sts").innerHTML = txt;
         }
 
         function add() {
-            var sn = prompt("Please enter your station's name:", "");
-            var su = prompt("Please enter your stream url:", "https://");
+            let sn = prompt("Station name:", "");
+            let su = prompt("Stream URL:", "https://");
             if (sn && su) {
                 localStorage.setItem('|' + btoa(sn), btoa(su));
                 render();
-                logs('Station "' + sn + '" added');
-            } else {
-                logs('Station addition canceled');
+                logs('Added: ' + sn);
             }
         }
 
         function del(id) {
-            id = atob(id);
-            if (confirm("Delete " + id + "?")) {
-                localStorage.removeItem("|" + btoa(id));
+            let name = atob(id);
+            if (confirm("Delete " + name + "?")) {
+                localStorage.removeItem("|" + id);
                 render();
-                logs('Station "' + id + '" deleted');
-            } else {
-                logs('Deletion canceled');
+                logs('Deleted: ' + name);
             }
         }
 
-        function getjson() {
-            if (localStorage.length > 0) {
-                var txt = '{ ';
-                for (var key in localStorage) {
-                    if (key.substring(0, 1) == "|") {
-                        key = key.substring(1);
-                        txt += '"' + atob(key).replace(/[\W_]+/gi, " ") + '":"' + atob(localStorage.getItem('|' + key)).replace(/[\"\'\<\>]/gi, '') + '", ';
-                    }
-                }
-                txt = txt.substring(0, (txt.length - 2));
-                txt += ' }';
-                downloadToFile(txt, 'stations.json', 'application/json');
-                logs('Json file created');
-            } else {
-                logs('No stations to create json file. Add some stations first');
+        function play(key, num) {
+            if (oldkey === key) return;
+            
+            if (oldkey) {
+                let oldEl = document.getElementById(oldkey);
+                if (oldEl) oldEl.style.background = '';
             }
+
+            let keyid = document.getElementById(key);
+            let streamUrl = atob(localStorage.getItem('|' + key));
+
+            keyid.style.background = 'lime';
+            logs('Playing: ' + atob(key));
+
+            myAudio.src = streamUrl;
+            myAudio.play();
+
+            st2.innerHTML = `<p>NAME: ${atob(key)}<p>URL: ${streamUrl}`;
+            oldkey = key;
         }
 
-        function putjson(e, o) {
-            fr = new FileReader();
-            fr.readAsText(o.files[0]);
-            fr.onload = function(e) {
-                var m = JSON.parse(e.target.result);
-                if (confirm("YOUR STATIONS WILL BE REPLACED!")) {
-                    localStorage.clear();
-                    for (var k in m) {
-                        localStorage.setItem('|' + btoa(k), btoa(m[k]));
-                    }
-                    render();
-                    logs('Stations loaded from your json file');
-                }
+        // PWA Install
+        window.installPWA = function() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
             }
-        }
-
-        var timerId, url, watch1, watch2, op, logger, clog = 0, st2, myAudio;
-
-        function logs(m) {
-            if (!logger) return;
-            if (clog > 1024) {
-                clog = 0;
-                logger.innerHTML = '';
-            }
-            clog++;
-            logger.innerHTML += clog + '. ' + m + '<br>';
-        }
-
-        function updateInstallButton() {
-            const btn = document.getElementById('installButton');
-            if (btn) {
-                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-                btn.style.display = isStandalone ? 'none' : 'inline-block';
-            }
-        }
+        };
 
         window.onload = function() {
             logger = document.getElementById('logs');
             st2 = document.getElementById('status');
             myAudio = document.getElementById("player");
 
-            logs('Page is fully loaded');
-            render();
+            document.getElementById("sts").innerHTML = '<br><br>Loading...';
+            
+            logs('App started');
 
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('sw.js')
-                    .then(() => logs('Service Worker registered'))
-                    .catch(err => logs('Service Worker failed'));
+                navigator.serviceWorker.register('sw.js').catch(() => {});
             }
 
-            updateInstallButton();
-            setTimeout(updateInstallButton, 500);
-            setTimeout(updateInstallButton, 1500);
+            render();
         };
 
-        function play(key, num) {
-            if (oldkey != key) {
-                if (oldkey) {
-                    document.getElementById(oldkey).innerHTML = document.getElementById(oldkey).innerHTML.substring(0, document.getElementById(oldkey).innerHTML.length - 3);
-                    document.getElementById(oldkey).style.background = '';
-                }
-                op = false;
-                var keyid = document.getElementById(key);
-                var ctmr = 0;
-
-                function watchdog() {
-                    if (watch1 == watch2) {
-                        if (op) {
-                            logs('"' + atob(key) + '" stopped unexpectedly. Reconnecting...');
-                            playnow(url);
-                        }
-                    } else {
-                        watch2 = watch1;
-                        ctmr = Math.floor(myAudio.currentTime);
-                        document.title = ctmr + ' ' + atob(key);
-                    }
-                }
-
-                if (timerId) clearInterval(timerId);
-                timerId = setInterval(watchdog, 1000);
-
-                function playnow(url) {
-                    keyid.innerHTML = num + '. ' + atob(key) + ' ⌛ ';
-                    op = false;
-                    logs('"' + atob(key) + '" starts to play...');
-                    myAudio.setAttribute('preload', 'none');
-                    myAudio.setAttribute('src', url);
-                    myAudio.setAttribute('autoplay', '');
-                    myAudio.volume = 1;
-                    myAudio.oncanplay = function() {
-                        myAudio.play();
-                        logs('"' + atob(key) + '" is playing now...');
-                        keyid.innerHTML = num + '. ' + atob(key) + ' 🔊 ';
-                        keyid.style.background = 'lime';
-                    };
-                    myAudio.onerror = function() {
-                        op = true;
-                        logs('"' + atob(key) + '" - playback error!');
-                        keyid.innerHTML = num + '. ' + atob(key) + ' ⛔ ';
-                        keyid.style.background = 'darkred';
-                    };
-                }
-
-                url = atob(localStorage.getItem('|' + key));
-                playnow(url);
-                myAudio.ontimeupdate = function() {
-                    watch1 = Math.random();
-                    if (myAudio.currentTime > 5) op = true;
-                };
-                st2.innerHTML = '<p>NAME: ' + atob(key) + '<p>URL: ' + url;
-            }
-            oldkey = key;
-        }
-
         window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
             deferredPrompt = e;
-            logs('PWA install prompt available');
+            logs('Install button ready');
         });
+    </script>
 
-        window.installPWA = function() {
-            if (deferredPrompt) {
-                deferred
+    <a href="stations.json">stations.json (example)</a><br><br>
+    <span class="add" onclick="add()">Add station</span>
+    <div id="sts"></div>
+    <br>
+    <button id="installButton" onclick="installPWA()">Install as App (PWA)</button>
+
+    <audio id="player"></audio>
+</body>
+</html>
