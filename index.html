@@ -103,7 +103,7 @@
             z-index: 9999;
         }
 
-        /* Hide install button when running as installed PWA */
+        /* Hide install button when app is installed */
         @media all and (display-mode: standalone) {
             #installButton {
                 display: none !important;
@@ -121,8 +121,8 @@
             return "Don't unload!";
         };
 
-        let oldkey = false;
-        let deferredPrompt;
+        var oldkey = false;
+        var deferredPrompt;
 
         const downloadToFile = (content, filename, contentType) => {
             const a = document.createElement('a');
@@ -139,9 +139,10 @@
             for (var key in localStorage) {
                 if (key.substring(0, 1) == "|") {
                     cnr++;
-                    let stationName = key.substring(1);
-                    txt += `<span title="delete" class="del" onclick="del('${stationName}')">X</span> 
-                            <div id="${stationName}" onclick="play('${stationName}', '${cnr}')">${cnr}. ${atob(stationName)}</div>`;
+                    var stationKey = key.substring(1);
+                    txt += '<span title="delete" class="del" onclick="del(\'' + stationKey + '\');">X</span> ' +
+                           '<div id="' + stationKey + '" onclick="play(\'' + stationKey + '\',\'' + cnr + '\');">' + 
+                           cnr + '. ' + atob(stationKey) + '</div>';
                 }
             }
             document.getElementById("sts").innerHTML = txt;
@@ -160,13 +161,11 @@
         }
 
         function del(id) {
-            let name = atob(id);
+            var name = atob(id);
             if (confirm("Delete " + name + "?")) {
                 localStorage.removeItem("|" + id);
                 render();
                 logs('Station "' + name + '" deleted');
-            } else {
-                logs('Deletion canceled');
             }
         }
 
@@ -175,9 +174,8 @@
                 var txt = '{ ';
                 for (var key in localStorage) {
                     if (key.substring(0, 1) == "|") {
-                        let name = atob(key.substring(1));
-                        let url = atob(localStorage.getItem(key));
-                        txt += `"${name.replace(/"/g, '\\"')}":"${url.replace(/"/g, '\\"')}", `;
+                        var k = key.substring(1);
+                        txt += '"' + atob(k).replace(/"/g, '\\"') + '":"' + atob(localStorage.getItem(key)).replace(/"/g, '\\"') + '", ';
                     }
                 }
                 txt = txt.substring(0, txt.length - 2) + ' }';
@@ -189,28 +187,29 @@
         }
 
         function putjson(e, o) {
-            const fr = new FileReader();
+            var fr = new FileReader();
             fr.readAsText(o.files[0]);
             fr.onload = function(ev) {
                 try {
-                    const m = JSON.parse(ev.target.result);
-                    if (confirm("This will replace all current stations. Continue?")) {
+                    var m = JSON.parse(ev.target.result);
+                    if (confirm("YOUR STATIONS WILL BE REPLACED! Continue?")) {
                         localStorage.clear();
                         for (var k in m) {
                             localStorage.setItem('|' + btoa(k), btoa(m[k]));
                         }
                         render();
-                        logs('Stations imported successfully');
+                        logs('Stations imported from JSON');
                     }
-                } catch (err) {
-                    logs('Error reading JSON file');
+                } catch(err) {
+                    logs('Invalid JSON file');
                 }
             };
         }
 
-        var timerId, url, watch1, watch2, op, logger, clog = 0, st2, myAudio;
+        var timerId, url, watch1, watch2, op = false, logger, clog = 0, st2, myAudio;
 
         function logs(m) {
+            if (!logger) return;
             if (clog > 1024) {
                 clog = 0;
                 logger.innerHTML = '';
@@ -227,22 +226,90 @@
             logs('Page loaded');
             render();
 
-            // Register Service Worker
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js')
-                    .then(() => logs('Service Worker registered'))
-                    .catch(err => logs('Service Worker failed: ' + err));
+                    .then(reg => logs('Service Worker registered'))
+                    .catch(err => logs('Service Worker error: ' + err));
             }
 
-            // Hide install button if already installed
             hideInstallButtonIfStandalone();
         };
 
         function play(key, num) {
-            if (oldkey === key) return;
-            
+            if (oldkey == key) return;
+
             if (oldkey) {
-                const oldEl = document.getElementById(oldkey);
+                var oldEl = document.getElementById(oldkey);
                 if (oldEl) {
                     oldEl.style.background = '';
-                    oldEl.innerHTML = oldEl.innerHTML.replace(/ [
+                    oldEl.innerHTML = oldEl.innerHTML.replace(/ [🔊⌛⛔]/, '');
+                }
+            }
+
+            var keyid = document.getElementById(key);
+            url = atob(localStorage.getItem('|' + key));
+
+            keyid.innerHTML = num + '. ' + atob(key) + ' ⌛ ';
+            logs('Loading: ' + atob(key));
+
+            myAudio.src = url;
+            myAudio.play().catch(e => logs('Play error'));
+
+            myAudio.oncanplay = function() {
+                keyid.innerHTML = num + '. ' + atob(key) + ' 🔊 ';
+                keyid.style.background = 'lime';
+            };
+
+            myAudio.onerror = function() {
+                keyid.innerHTML = num + '. ' + atob(key) + ' ⛔ ';
+                keyid.style.background = 'darkred';
+                logs('Stream error');
+            };
+
+            oldkey = key;
+            st2.innerHTML = '<p>NAME: ' + atob(key) + '<p>URL: ' + url;
+        }
+
+        // PWA Install
+        window.addEventListener('beforeinstallprompt', (e) => {
+            deferredPrompt = e;
+            logs('PWA install prompt ready');
+        });
+
+        window.installPWA = function() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choice) => {
+                    logs(choice.outcome === 'accepted' ? 'App installed!' : 'Install canceled');
+                    deferredPrompt = null;
+                });
+            }
+        };
+
+        function hideInstallButtonIfStandalone() {
+            if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+                var btn = document.getElementById('installButton');
+                if (btn) btn.style.display = 'none';
+            }
+        }
+
+        window.addEventListener('load', hideInstallButtonIfStandalone);
+    </script>
+
+    <a href="stations.json">stations.json (example)</a><br><br><br>
+    <span class="add" onclick="add();">Add station</span>
+    <div id="sts"></div>
+    
+    <b onclick="getjson();">download stations.json</b>
+    | <input onchange="putjson(event,this)" class="hid" type="file" id="file">
+    <label for="file"><b>upload stations.json</b></label>
+    <br><br>
+
+    <button id="installButton" onclick="installPWA()" 
+            style="padding:10px 20px; font-size:16px; margin:15px; cursor:pointer;">
+        Install as App (PWA)
+    </button>
+
+    <audio id="player"></audio>
+</body>
+</html>
