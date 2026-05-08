@@ -103,12 +103,17 @@
             z-index: 9999;
         }
 
-        /* Start with button visible, hide only in PWA mode */
         #installButton {
             display: inline-block;
         }
+
+        @media all and (display-mode: standalone) {
+            #installButton {
+                display: none !important;
+            }
+        }
     </style>
-    <title>html5 radio player 0.1.13</title>
+    <title>html5 radio player 0.1.14</title>
 </head>
 <body>
     <div id="status"></div>
@@ -215,12 +220,10 @@
 
         function updateInstallButton() {
             const btn = document.getElementById('installButton');
-            if (!btn) return;
-
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                               (window.navigator.standalone === true);
-
-            btn.style.display = isStandalone ? 'none' : 'inline-block';
+            if (btn) {
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                btn.style.display = isStandalone ? 'none' : 'inline-block';
+            }
         }
 
         window.onload = function() {
@@ -237,8 +240,76 @@
                     .catch(err => logs('Service Worker failed'));
             }
 
-            // Multiple checks to handle Windows Chrome timing issues
             updateInstallButton();
-            setTimeout(updateInstallButton, 300);
-            setTimeout(updateInstallButton, 800);
-            setTimeout(updateInstallButton
+            setTimeout(updateInstallButton, 500);
+            setTimeout(updateInstallButton, 1500);
+        };
+
+        function play(key, num) {
+            if (oldkey != key) {
+                if (oldkey) {
+                    document.getElementById(oldkey).innerHTML = document.getElementById(oldkey).innerHTML.substring(0, document.getElementById(oldkey).innerHTML.length - 3);
+                    document.getElementById(oldkey).style.background = '';
+                }
+                op = false;
+                var keyid = document.getElementById(key);
+                var ctmr = 0;
+
+                function watchdog() {
+                    if (watch1 == watch2) {
+                        if (op) {
+                            logs('"' + atob(key) + '" stopped unexpectedly. Reconnecting...');
+                            playnow(url);
+                        }
+                    } else {
+                        watch2 = watch1;
+                        ctmr = Math.floor(myAudio.currentTime);
+                        document.title = ctmr + ' ' + atob(key);
+                    }
+                }
+
+                if (timerId) clearInterval(timerId);
+                timerId = setInterval(watchdog, 1000);
+
+                function playnow(url) {
+                    keyid.innerHTML = num + '. ' + atob(key) + ' ⌛ ';
+                    op = false;
+                    logs('"' + atob(key) + '" starts to play...');
+                    myAudio.setAttribute('preload', 'none');
+                    myAudio.setAttribute('src', url);
+                    myAudio.setAttribute('autoplay', '');
+                    myAudio.volume = 1;
+                    myAudio.oncanplay = function() {
+                        myAudio.play();
+                        logs('"' + atob(key) + '" is playing now...');
+                        keyid.innerHTML = num + '. ' + atob(key) + ' 🔊 ';
+                        keyid.style.background = 'lime';
+                    };
+                    myAudio.onerror = function() {
+                        op = true;
+                        logs('"' + atob(key) + '" - playback error!');
+                        keyid.innerHTML = num + '. ' + atob(key) + ' ⛔ ';
+                        keyid.style.background = 'darkred';
+                    };
+                }
+
+                url = atob(localStorage.getItem('|' + key));
+                playnow(url);
+                myAudio.ontimeupdate = function() {
+                    watch1 = Math.random();
+                    if (myAudio.currentTime > 5) op = true;
+                };
+                st2.innerHTML = '<p>NAME: ' + atob(key) + '<p>URL: ' + url;
+            }
+            oldkey = key;
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            logs('PWA install prompt available');
+        });
+
+        window.installPWA = function() {
+            if (deferredPrompt) {
+                deferred
