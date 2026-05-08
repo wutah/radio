@@ -103,12 +103,12 @@
             z-index: 9999;
         }
 
-        /* Hide button by default - stronger rule */
+        /* Button is hidden by default */
         #installButton {
-            display: none;
+            display: none !important;
         }
     </style>
-    <title>html5 radio player 0.1.10</title>
+    <title>html5 radio player 0.1.12</title>
 </head>
 <body>
     <div id="status"></div>
@@ -213,14 +213,17 @@
             logger.innerHTML += clog + '. ' + m + '<br>';
         }
 
-        function updateInstallButton() {
-            const btn = document.getElementById('installButton');
-            if (!btn) return;
-
+        function shouldShowInstallButton() {
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                                window.navigator.standalone === true;
+            return !isStandalone;
+        }
 
-            btn.style.display = isStandalone ? 'none' : 'inline-block';
+        function updateInstallButton() {
+            const btn = document.getElementById('installButton');
+            if (btn) {
+                btn.style.display = shouldShowInstallButton() ? 'inline-block' : 'none';
+            }
         }
 
         window.onload = function() {
@@ -237,11 +240,11 @@
                     .catch(err => logs('Service Worker failed'));
             }
 
-            // Aggressive hiding for Windows Chrome
+            // Aggressive checks for Windows Chrome
             updateInstallButton();
-            setTimeout(updateInstallButton, 300);
-            setTimeout(updateInstallButton, 800);
-            setTimeout(updateInstallButton, 1500);
+            setTimeout(updateInstallButton, 400);
+            setTimeout(updateInstallButton, 1000);
+            setTimeout(updateInstallButton, 2000);
         };
 
         function play(key, num) {
@@ -308,8 +311,7 @@
             e.preventDefault();
             deferredPrompt = e;
             logs('PWA install prompt available');
-            // Only show button if not in standalone mode
-            updateInstallButton();
+            updateInstallButton();   // Only show if not standalone
         });
 
         window.installPWA = function() {
@@ -322,8 +324,6 @@
             }
         };
 
-        // Extra safety listeners
-        window.addEventListener('load', updateInstallButton);
         window.matchMedia('(display-mode: standalone)').addEventListener('change', updateInstallButton);
     </script>
 
